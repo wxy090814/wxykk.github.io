@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>王欣怡，我们见一面好不好？</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 微软雅黑;
+      position: relative;
+    }
+    /* 全屏弹窗 */
+    .popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(135deg, #ffebf0, #ffd1dc);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      z-index: 9999;
+      text-align: left;
+      padding: 0 50px;
+      transition: opacity 0.8s ease;
+    }
+    /* 顶部标语（支持动态切换） */
+    .title {
+      font-size: 38px;
+      color: #ff3e78;
+      font-weight: bold;
+      margin-bottom: 50px;
+      text-shadow: 0 2px 4px rgba(255,62,120,0.3);
+      transition: all 0.5s ease;
+    }
+    /* 核心内容容器（表情+接受按钮） */
+    .content-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 40px;
+      transition: transform 0.5s ease;
+    }
+    /* 表情包 */
+    .emoji {
+      font-size: 110px;
+      transition: all 0.5s ease;
+    }
+    /* 按钮样式 */
+    .btn {
+      padding: 18px 45px;
+      border: none;
+      border-radius: 50px;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+      transform-origin: center;
+    }
+    .accept-btn {
+      background: #4cd964;
+      color: white;
+      box-shadow: 0 4px 15px rgba(76,217,100,0.4);
+    }
+    .accept-btn:hover {
+      background: #3ac152;
+      transform: scale(1.05);
+    }
+    .refuse-btn {
+      position: fixed;
+      right: 50px;
+      top: 50%;
+      transform: translateY(-50%) scale(1);
+      background: #ff3b30;
+      color: white;
+      box-shadow: 0 4px 15px rgba(255,59,48,0.4);
+      max-width: 300px;
+    }
+    .refuse-btn:hover {
+      background: #e03024;
+    }
+    /* 雪花样式 */
+    .snowflake {
+      position: absolute;
+      color: #fff;
+      font-size: 16px;
+      opacity: 0.8;
+      pointer-events: none;
+      animation: snowfall linear infinite;
+      z-index: 9998;
+    }
+    /* 爱心样式 */
+    .heart {
+      position: absolute;
+      color: #ff3e78;
+      font-size: 20px;
+      opacity: 0.9;
+      pointer-events: none;
+      animation: heartFloat 4s ease-in-out infinite;
+      text-shadow: 0 0 8px #ff3e78;
+      z-index: 10000;
+    }
+    /* 雪花飘落动画 */
+    @keyframes snowfall {
+      0% { transform: translateY(-10px) rotate(0deg); opacity: 0.8; }
+      100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+    }
+    /* 爱心漂浮动画 */
+    @keyframes heartFloat {
+      0% { transform: translateY(100vh) rotate(0deg) scale(1); opacity: 1; }
+      50% { transform: translateY(50vh) rotate(15deg) scale(1.3); opacity: 0.8; }
+      100% { transform: translateY(-100vh) rotate(30deg) scale(0.8); opacity: 0; }
+    }
+    /* 弹窗透明化（接受后） */
+    .popup.fade-out {
+      opacity: 0.2;
+      pointer-events: none;
+    }
+    /* 接受后标语样式（更醒目） */
+    .final-title {
+      position: fixed;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 42px;
+      color: #ff3e78;
+      font-weight: bold;
+      text-shadow: 0 0 15px #ff3e78, 0 2px 4px rgba(0,0,0,0.3);
+      z-index: 10001;
+      transition: all 1s ease;
+    }
+  </style>
+</head>
+<body>
+  <!-- 全屏弹窗 -->
+  <div class="popup" id="popup">
+    <h2 class="title" id="title">王欣怡，我们见一面好不好？</h2>
+    <div class="content-wrapper" id="contentWrapper">
+      <div class="emoji" id="emoji">😊</div>
+      <button class="btn accept-btn" id="acceptBtn">接受</button>
+    </div>
+    <button class="btn refuse-btn" id="refuseBtn">拒绝</button>
+  </div>
+
+  <script>
+    const popup = document.getElementById('popup');
+    const title = document.getElementById('title');
+    const contentWrapper = document.getElementById('contentWrapper');
+    const emoji = document.getElementById('emoji');
+    const acceptBtn = document.getElementById('acceptBtn');
+    const refuseBtn = document.getElementById('refuseBtn');
+    let clickCount = 0;
+    const maxMoveCount = 1; // 仅移动1次
+    const maxScaleCount = 2; // 仅放大2次
+    const moveStep = 100; // 单次移动距离
+    const scaleStep = 0.6; // 每次放大倍数
+    let heartInterval = null; // 爱心循环定时器
+
+    // 标语映射（按拒绝次数切换）
+    const titleMap = [
+      '王欣怡，我们见一面好不好？', // 初始
+      '王欣怡我好想你', // 第1次拒绝
+      '王欣怡，不要拒绝好不好？', // 第2次拒绝
+      '王欣怡，没有你我真的不行' // 第3次及以后拒绝
+    ];
+
+    // 表情映射
+    const fixedEmojis = ['😊', '🥺', '😠', '😭']; // 0:初始 1:委屈 2:不高兴 3:哭脸
+    const randomEmojis = ['😢', '😤', '😣', '😥', '😩', '😫', '🙍‍♀️', '🙁']; // 第4次及以后随机
+
+    // 生成雪花（点击拒绝时触发，单次飘雪）
+    function createSnowflake() {
+      const snowflake = document.createElement('div');
+      snowflake.className = 'snowflake';
+      snowflake.innerText = '❄️';
+      snowflake.style.left = `${Math.random() * 100}vw`;
+      snowflake.style.fontSize = `${12 + Math.random() * 10}px`;
+      snowflake.style.animationDuration = `${3 + Math.random() * 5}s`;
+      document.body.appendChild(snowflake);
+      setTimeout(() => snowflake.remove(), 8000);
+    }
+
+    // 生成爱心（接受后持续飘）
+    function createHeart() {
+      const heart = document.createElement('div');
+      heart.className = 'heart';
+      heart.innerText = '💓';
+      heart.style.left = `${Math.random() * 100}vw`;
+      heart.style.fontSize = `${16 + Math.random() * 20}px`;
+      heart.style.animationDuration = `${3 + Math.random() * 3}s`;
+      document.body.appendChild(heart);
+      setTimeout(() => heart.remove(), 6000);
+    }
+
+    // 拒绝按钮点击事件
+    refuseBtn.addEventListener('click', () => {
+      clickCount++;
+      const currentCount = Math.min(clickCount, 3); // 超过3次按第3次处理
+
+      // 1. 切换标语
+      title.innerText = titleMap[currentCount];
+
+      // 2. 切换表情
+      if (clickCount <= 3) {
+        emoji.innerText = fixedEmojis[currentCount];
+      } else {
+        const randomIdx = Math.floor(Math.random() * randomEmojis.length);
+        emoji.innerText = randomEmojis[randomIdx];
+      }
+
+      // 3. 表情+接受按钮移动（仅1次）
+      if (clickCount <= maxMoveCount) {
+        contentWrapper.style.transform = `translateX(-${clickCount * moveStep}px)`;
+      }
+
+      // 4. 拒绝按钮放大（仅2次）
+      if (clickCount <= maxScaleCount) {
+        const newScale = 1 + (clickCount * scaleStep);
+        refuseBtn.style.transform = `translateY(-50%) scale(${newScale})`;
+      }
+
+      // 5. 生成雪花（每次点击拒绝飘20片，单次触发）
+      for (let i = 0; i < 20; i++) {
+        setTimeout(() => createSnowflake(), i * 80);
+      }
+    });
+
+    // 接受按钮点击事件
+    acceptBtn.addEventListener('click', () => {
+      // 1. 切换表情和标语
+      emoji.innerText = '😆';
+      title.innerText = '王欣怡，你定时间，然后私发给我哈';
+      title.classList.add('final-title'); // 单独样式，更醒目
+
+      // 2. 弹窗透明化
+      popup.classList.add('fade-out');
+
+      // 3. 启动爱心持续循环（满屏效果）
+      heartInterval = setInterval(createHeart, 200);
+    });
+
+    // 禁止所有强制退出方式
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === 'Backspace') {
+        e.preventDefault();
+        refuseBtn.click();
+      }
+    });
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+    window.addEventListener('popstate', (e) => {
+      e.preventDefault();
+      refuseBtn.click();
+    });
+    history.pushState(null, null, document.URL);
+    document.addEventListener('dblclick', (e) => e.preventDefault());
+  </script>
+</body>
+</html>
